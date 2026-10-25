@@ -1,0 +1,83 @@
+:root{
+  --bg:#fff8ec;--card:#ffffff;--ink:#23304a;--muted:#5d6b85;--line:#e6dcc8;
+  --blue:#2f6fed;--blue-bg:#e3edff;--green:#12915a;--green-bg:#dcf6e8;--red:#c9372c;--red-bg:#fde3df;
+  --yellow:#ffd23f;--orange:#f08a24;--purple:#7a4de0;--focus:#1b5fe0;--radius:20px;
+  --font:"Segoe UI","Trebuchet MS",system-ui,-apple-system,Roboto,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{--bg:#141b2b;--card:#1d2740;--ink:#f0f3fb;--muted:#aab4cc;--line:#33415f;--blue:#7aa6ff;--blue-bg:#1e3159;--green:#5fdc9e;--green-bg:#143a2b;--red:#ff9a90;--red-bg:#40201f;--focus:#8db4ff}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.5 var(--font);min-height:100vh}
+a{color:var(--blue)}
+:focus-visible{outline:4px solid var(--focus);outline-offset:2px}
+.ka-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:linear-gradient(120deg,#2f6fed,#7a4de0);color:#fff;position:sticky;top:0;z-index:30}
+.ka-title{margin:0;font-size:22px;flex:1;min-width:120px}
+.ka-back{color:#fff;text-decoration:none;font-size:28px;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:#ffffff26}
+.ka-who,.ka-stars{background:#ffffff26;border-radius:999px;padding:4px 12px;font-weight:700;white-space:nowrap}
+.ka-icon{min-width:48px;min-height:48px;border:0;border-radius:14px;background:#ffffff26;color:#fff;font-size:22px;cursor:pointer}
+#app,main.ka-main{max-width:980px;margin:0 auto;padding:16px 14px 60px}
+.ka-card{background:var(--card);border:2px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:14px 0;box-shadow:0 4px 0 var(--line)}
+h2{margin:6px 0 8px;font-size:26px}h3{margin:14px 0 6px}
+.muted{color:var(--muted)}.small{font-size:15px}
+.ka-btn{min-height:52px;padding:10px 20px;border-radius:16px;border:2px solid var(--line);background:var(--card);color:var(--ink);font:700 18px var(--font);cursor:pointer;margin:4px 6px 4px 0;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.ka-btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.ka-btn.listen{background:var(--blue-bg);border-color:var(--blue);color:var(--ink)}
+.ka-btn.danger{background:var(--red-bg);border-color:var(--red);color:var(--ink)}
+.ka-btn:disabled{opacity:.45;cursor:not-allowed}
+.ka-btn:active,.ka-opt:active,.ka-tile:active,.ka-key:active{transform:scale(.97)}
+.ka-input{font:700 24px var(--font);padding:10px 14px;border:3px solid var(--line);border-radius:14px;width:100%;max-width:340px;background:var(--card);color:var(--ink)}
+.ka-input.num{text-align:center;font-size:38px;max-width:220px;display:block;margin:8px auto}.ka-input.good{border-color:var(--green);background:var(--green-bg)}
+select.ka-input{font-size:20px}
+.ka-err{color:var(--red);font-weight:700;min-height:1.4em}
+.ka-note{background:#fff3c4;color:#4a3b00;border-left:6px solid var(--orange);border-radius:12px;padding:10px 14px;margin:10px 0;font-size:16px}
+.ka-modal{position:fixed;inset:0;background:#0009;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+.ka-modal .ka-card{max-width:420px;width:100%}
+/* hub */
+.ka-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.ka-subject{display:flex;flex-direction:column;gap:6px;text-align:left;text-decoration:none;color:var(--ink);background:var(--card);border:3px solid var(--line);border-radius:var(--radius);padding:16px;min-height:150px;box-shadow:0 5px 0 var(--line)}
+.ka-subject:hover{border-color:var(--blue)}
+.ka-subject .ic{font-size:44px;line-height:1}.ka-subject .nm{font-size:24px;font-weight:800}
+.ka-bar{height:12px;border-radius:8px;background:var(--line);overflow:hidden}.ka-bar i{display:block;height:100%;background:var(--green)}
+.ka-kids{display:flex;gap:12px;flex-wrap:wrap}
+.ka-kid{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:120px;padding:14px;border-radius:var(--radius);border:3px solid var(--line);background:var(--card);cursor:pointer;font:700 20px var(--font);color:var(--ink)}
+.ka-kid .av{font-size:48px}.ka-kid.sel{border-color:var(--blue);background:var(--blue-bg)}
+.ka-avs{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.ka-av{font-size:30px;width:54px;height:54px;border-radius:14px;border:3px solid var(--line);background:var(--card);cursor:pointer}.ka-av[aria-pressed=true]{border-color:var(--blue);background:var(--blue-bg)}
+label.ka-lab{display:block;font-weight:700;margin:10px 0 4px}
+/* units */
+.ka-units{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.ka-unit{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px 12px;min-height:132px;border-radius:var(--radius);border:3px solid var(--line);background:var(--card);cursor:pointer;color:var(--ink);font:600 17px var(--font)}
+.ka-unit.rec{border-color:var(--orange);box-shadow:0 0 0 4px #f08a2440}
+.ka-unit-ic{font-size:34px}.ka-unit-t{font-weight:800;text-align:center}.ka-unit-s{letter-spacing:2px;font-size:18px}
+.ka-rec{position:absolute;top:-10px;right:8px;background:var(--orange);color:#fff;border-radius:999px;font-size:12px;padding:2px 10px;font-weight:800}
+.ka-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.ka-tab{min-height:48px;border:3px solid var(--line);border-radius:999px;padding:6px 16px;background:var(--card);color:var(--ink);font:700 17px var(--font);cursor:pointer}.ka-tab[aria-selected=true]{background:var(--yellow);border-color:var(--orange);color:#23304a}
+/* exercises */
+.ka-prog{font-weight:700;color:var(--muted)}
+.ka-meter{height:10px;background:var(--line);border-radius:8px;overflow:hidden;margin:6px 0 12px}.ka-meter i{display:block;height:100%;background:var(--blue)}
+.ka-prompt{font-size:26px;font-weight:800;margin:8px 0}
+.ka-visual{font-size:76px;line-height:1.1;margin:8px 0;word-break:break-word}
+.ka-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:12px 0}
+.ka-opts.big .ka-opt{font-size:54px;min-height:110px}
+.ka-opt{min-height:70px;border-radius:18px;border:3px solid var(--line);background:var(--card);color:var(--ink);font:800 26px var(--font);cursor:pointer;padding:8px 12px}
+.ka-opt:hover:not(:disabled){border-color:var(--blue)}.ka-opt.good{background:var(--green-bg);border-color:var(--green)}.ka-opt.bad{background:var(--red-bg);border-color:var(--red);opacity:.8}
+.ka-fb{min-height:1.6em;font-weight:800;font-size:20px;margin:8px 0}
+.ka-nav{margin-top:8px}
+.ka-pad{display:grid;grid-template-columns:repeat(3,76px);gap:10px;justify-content:center;margin:10px 0}
+.ka-key{min-height:68px;border-radius:16px;border:3px solid var(--line);background:var(--card);color:var(--ink);font:800 28px var(--font);cursor:pointer}.ka-key.ok{background:var(--green-bg);border-color:var(--green)}
+.ka-slots,.ka-bank{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0;min-height:64px}
+.ka-slots{padding:10px;border-radius:16px;background:var(--blue-bg);border:3px dashed var(--blue)}.ka-slots.good{background:var(--green-bg);border-color:var(--green)}
+.ka-slot,.ka-tile{min-width:56px;min-height:56px;border-radius:14px;border:3px solid var(--line);background:var(--card);color:var(--ink);font:800 26px var(--font);cursor:pointer;padding:4px 12px}
+.ka-slot.empty{border-style:dashed;background:transparent;cursor:default}.ka-tile{border-color:var(--blue)}
+.ka-end{font-size:28px;font-weight:800}
+.shake{animation:shake .4s}@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.ka-result{text-align:center}.ka-bigstars{font-size:60px;letter-spacing:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:520px){body{font-size:17px}.ka-pad{grid-template-columns:repeat(3,70px)}.ka-prompt{font-size:22px}}
+/* words / tiles used by several subjects */
+.ka-graph{display:inline-flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+.ka-gtile{min-width:60px;min-height:70px;border-radius:16px;border:3px solid var(--blue);background:var(--blue-bg);color:var(--ink);font:800 38px var(--font);cursor:pointer;padding:4px 12px}
+.ka-gtile.on{background:var(--yellow);border-color:var(--orange);color:#23304a}
+.ka-bigword{font-size:54px;font-weight:800;margin:6px 0;text-align:center}
+.ka-center{text-align:center}
+.ka-card.ghost{background:transparent;border-style:dashed;box-shadow:none}
