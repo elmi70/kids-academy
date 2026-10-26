@@ -143,6 +143,7 @@
   const norm = s => String(s).trim().replace(/\s+/g, ' ');
   const hasSpeech = () => !!(g.speechSynthesis && g.SpeechSynthesisUtterance);
   const voiceMode = () => store.settings.voice || 'auto';
+  const IOS = !!(g.navigator && (/iP(hone|ad|od)/.test(g.navigator.userAgent || '') || (g.navigator.platform === 'MacIntel' && g.navigator.maxTouchPoints > 1)));
 
   function langOf(code) { code = String(code || '').toLowerCase().replace(/_/g, '-'); const b = code.split('-')[0]; return ({ deu: 'de', ger: 'de', eng: 'en' })[b] || b; }
   function refreshVoices() { try { voices = hasSpeech() ? (g.speechSynthesis.getVoices() || []) : []; } catch (e) { voices = []; } }
@@ -208,7 +209,7 @@
   function deviceSpeak(text, lang, rate, allow) {
     const synth = g.speechSynthesis, my = ++A.seq;
     try {
-      const busy = synth.speaking || synth.pending;
+      const busy = synth.speaking || synth.pending, delay = busy && !IOS;   // iOS only speaks inside the tap itself, so never defer there
       if (busy) synth.cancel();
       if (synth.paused) synth.resume();
       const u = new g.SpeechSynthesisUtterance(text);
@@ -228,8 +229,9 @@
         if (started || blocked || my !== A.seq) return;
         try { if (synth.speaking && A.speechOk) return; } catch (e) { /* ignore */ }   // Android can report speaking=true while silent, so only trust it once speech has worked
         A.lastError = A.lastError || 'speech did not start'; failDevice(text, lang, allow);
-      }, (A.speechOk ? 1800 : 3000) + (busy ? 60 : 0));
-      setTimeout(() => { try { synth.speak(u); } catch (e) { A.lastError = String(e && e.message || e); failDevice(text, lang, allow); } }, busy ? 60 : 0);
+      }, (A.speechOk ? 1800 : 3000) + (delay ? 60 : 0));
+      const go = () => { try { synth.speak(u); } catch (e) { A.lastError = String(e && e.message || e); failDevice(text, lang, allow); } };
+      if (delay) setTimeout(go, 60); else go();
       return true;
     } catch (e) { A.lastError = String(e && e.message || e); failDevice(text, lang, allow); return false; }
   }
