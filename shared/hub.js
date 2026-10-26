@@ -29,7 +29,6 @@
         return '<a class="ka-subject" href="' + s.path + 'index.html"><span class="ic" aria-hidden="true">' + s.icon + '</span><span class="nm">' + esc(t('subject.' + s.id)) + '</span><span class="muted small">' + esc(t('desc.' + s.id)) + '</span>' +
           '<span class="ka-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '" aria-label="' + esc(t('progress')) + '"><i style="width:' + pct + '%"></i></span><span class="muted small">' + done + ' / ' + s.units + ' ' + esc(t('lessons')) + ' · ⭐ ' + KA.subjectStars(s.id) + '</span></a>';
       }).join('') + '</div>';
-      h += '<p><a class="ka-btn" href="super_reader_90_day_academy.html">📚 ' + esc(t('original')) + '</a></p>';
     }
     h += '<div class="ka-card ghost"><h3>' + esc(t('parent')) + '</h3><p class="muted small">' + esc(t('privacy')) + '</p><button type="button" class="ka-btn" id="p-open">🔒 ' + esc(t('parent')) + '</button><div id="p-area"></div></div>';
     app.innerHTML = h;
