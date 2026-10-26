@@ -226,7 +226,7 @@
       };
       setTimeout(() => {
         if (started || blocked || my !== A.seq) return;
-        try { if (synth.speaking) return; } catch (e) { /* ignore */ }
+        try { if (synth.speaking && A.speechOk) return; } catch (e) { /* ignore */ }   // Android can report speaking=true while silent, so only trust it once speech has worked
         A.lastError = A.lastError || 'speech did not start'; failDevice(text, lang, allow);
       }, (A.speechOk ? 1800 : 3000) + (busy ? 60 : 0));
       setTimeout(() => { try { synth.speak(u); } catch (e) { A.lastError = String(e && e.message || e); failDevice(text, lang, allow); } }, busy ? 60 : 0);
