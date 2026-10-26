@@ -1,5 +1,5 @@
 /* Offline support. Bump CACHE when you change files so devices pick up the new version. */
-const CACHE = 'kids-academy-v3';
+const CACHE = 'kids-academy-v4';
 const FILES = [
   './',
   'icons/icon-192.png',

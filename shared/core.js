@@ -221,7 +221,7 @@
         const er = (e && e.error) || 'error';
         if (er === 'interrupted' || er === 'canceled') return;
         A.lastError = er;
-        if (er === 'not-allowed') { blocked = true; A.pending = { text, lang, rate }; return; }
+        if (er === 'not-allowed') { blocked = true; if (allow) { playClip(text, lang).then(ok => { if (!ok) notifyIssue(); }); } else A.pending = { text, lang, rate }; return; }
         if (my === A.seq) failDevice(text, lang, allow);
       };
       setTimeout(() => {
