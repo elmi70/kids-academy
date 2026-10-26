@@ -30,7 +30,7 @@
   const EM = ['🍎', '⭐', '🐟', '🚗', '🌸', '🍪', '🐞', '🎈'];
   function make(id, r) {
     r = r || Math.random;
-    let a, b, c, q, ans, e;
+    let a, b, c, ans, e;
     switch (id) {
       case 'm1': a = int(r, 1, 10); e = EM[int(r, 0, EM.length - 1)];
         return { type: 'choice', qk: 'howmany', visual: e.repeat(a), options: choices(a, r, 1, 10, 4), a, kind: id };

@@ -29,8 +29,7 @@
       });
     } else if (unit.type === 'articles') {
       pickN(unit.nouns, Math.min(10, unit.nouns.length)).forEach(n => {
-        items.push({ type: 'choice', q: t('lg.article'), visual: n[2], options: ['der', 'die', 'das'], keepOrder: true, a: n[0], explain: n[0] + ' ' + n[1], sayCorrect: n[0] + ' ' + n[1], sayLang: lang });
-        items[items.length - 1].q = '___ ' + n[1] + '  (' + t('lg.article') + ')';
+        items.push({ type: 'choice', q: '___ ' + n[1] + '  (' + t('lg.article') + ')', visual: n[2], options: ['der', 'die', 'das'], keepOrder: true, a: n[0], explain: n[0] + ' ' + n[1], sayCorrect: n[0] + ' ' + n[1], sayLang: lang });
       });
     } else if (unit.type === 'sight') {
       pickN(unit.words, Math.min(10, unit.words.length)).forEach(w => {

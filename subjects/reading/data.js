@@ -1,9 +1,11 @@
 /* Reading content. Words are written as sounds separated by dots: "sh.i.p" is the word "ship".
-   tests/validate.mjs checks that every word only uses sounds taught in this unit or an earlier one. */
+   tests/validate.mjs checks that every word only uses sounds taught in this unit or an earlier one.
+   confuse: pictures that look alike for a child are never offered together as answer choices. */
 (function (g) {
   const EN = {
     lang: 'en',
     sight: ['the', 'is', 'i', 'to', 'you', 'was', 'my', 'we', 'he', 'she', 'me', 'be'],
+    confuse: [['ship', 'boat', 'car', 'farm'], ['dish', 'fork', 'pot', 'tin', 'chip'], ['leg', 'feet', 'lip'], ['sun', 'star', 'rain'], ['hen', 'duck', 'goat'], ['cap', 'coat', 'sock']],
     ex: {
       s: ['sun', '☀️'], a: ['ant', '🐜'], t: ['tent', '⛺'], p: ['pig', '🐷'], i: ['ink', '🖋️'], n: ['nut', '🥜'], m: ['moon', '🌙'], d: ['duck', '🦆'],
       g: ['goat', '🐐'], o: ['octopus', '🐙'], c: ['cat', '🐱'], k: ['kite', '🪁'], e: ['egg', '🥚'], u: ['umbrella', '☂️'], r: ['rainbow', '🌈'], h: ['hat', '🎩'],
@@ -29,6 +31,7 @@
   const DE = {
     lang: 'de',
     sight: ['ist', 'und', 'die', 'der', 'das', 'dem', 'den', 'ein', 'eine', 'einen', 'ich', 'du', 'wir', 'sie', 'er', 'es', 'mit', 'in', 'im', 'am', 'auf', 'da', 'hat', 'sind'],
+    confuse: [['bär', 'löwe', 'tiger'], ['haus', 'schule'], ['hase', 'maus'], ['auto', 'bus', 'zug'], ['apfel', 'tomate']],
     ex: {
       m: ['Maus', '🐭'], a: ['Affe', '🐒'], s: ['Sonne', '☀️'], i: ['Igel', '🦔'], o: ['Oma', '👵'], l: ['Löwe', '🦁'], e: ['Ente', '🦆'], n: ['Nase', '👃'], t: ['Tiger', '🐯'], r: ['Rose', '🌹'],
       u: ['Uhr', '⏰'], p: ['Pilz', '🍄'], f: ['Fisch', '🐟'], d: ['Dose', '🥫'], h: ['Hund', '🐶'], b: ['Bär', '🐻'], k: ['Katze', '🐱'], g: ['Gabel', '🍴'], w: ['Wal', '🐋'], z: ['Zug', '🚆'],
@@ -38,10 +41,10 @@
     emoji: {
       oma: '👵', mama: '👩', nase: '👃', rose: '🌹', ente: '🦆', tomate: '🍅', salat: '🥗', hund: '🐶', hase: '🐰', hand: '✋', mund: '👄', bus: '🚌', wal: '🐋', zebra: '🦓', zug: '🚆',
       gabel: '🍴', kamel: '🐫', tiger: '🐯', eis: '🍦', haus: '🏠', maus: '🐭', auto: '🚗', baum: '🌳', eule: '🦉', bein: '🦵', schaf: '🐑', fisch: '🐟', buch: '📖', kuchen: '🍰', milch: '🥛',
-      schule: '🏫', nacht: '🌙', biene: '🐝', 'bär': '🐻', 'käse': '🧀', 'löwe': '🦁', 'tür': '🚪', 'küche': '🍳', spiel: '🎲', stern: '⭐', katze: '🐱', pferd: '🐴', apfel: '🍎', stein: '🪨'
+      schule: '🏫', nacht: '🌙', biene: '🐝', 'bär': '🐻', 'käse': '🧀', 'löwe': '🦁', 'tür': '🚪', 'küche': '🍳', spiel: '🎲', stern: '⭐', katze: '🐱', pferd: '🐴', apfel: '🍎'
     },
     units: [
-      { id: 'de1', icon: '👵', title: 'm a s i o', graphemes: ['m', 'a', 's', 'i', 'o'], words: ['O.m.a', 'M.a.m.a', 'M.i.a', 'O.m.i', 's.o', 'a.m', 'i.m', 'M.i.m.i'], sentences: ['Oma ist da.', 'Mia und Mama sind da.'], q: { q: 'Wer ist mit Mia da?', options: ['Mama', 'Oma', 'Omi'], a: 'Mama' } },
+      { id: 'de1', icon: '👵', title: 'm a s i o', graphemes: ['m', 'a', 's', 'i', 'o'], words: ['O.m.a', 'M.a.m.a', 'M.i.a', 'O.m.i', 's.o', 'a.m', 'i.m', 'M.i.m.i'], sentences: ['Oma ist da.', 'Mia und Mama sind da.'], q: { q: 'Wer ist mit Mia da?', options: ['Mama', 'Mimi', 'Omi'], a: 'Mama' } },
       { id: 'de2', icon: '🌹', title: 'l e n t r', graphemes: ['l', 'e', 'n', 't', 'r'], words: ['N.a.s.e', 'R.o.s.e', 'E.n.t.e', 'S.a.l.a.t', 'T.o.m.a.t.e', 'R.a.t', 'S.i.r.e.n.e', 'l.i.l.a'], sentences: ['Die Rose ist rot.', 'Die Ente ist da.'], q: { q: 'Was ist rot?', options: ['Die Rose', 'Die Ente', 'Die Nase'], a: 'Die Rose' } },
       { id: 'de3', icon: '🐶', title: 'u p f d h', graphemes: ['u', 'p', 'f', 'd', 'h'], words: ['H.u.n.d', 'H.u.t', 'H.a.s.e', 'H.a.n.d', 'M.u.n.d', 'P.u.m.a', 'D.o.s.e', 'P.u.t.e'], sentences: ['Der Hund ist da.', 'Der Hund hat die Dose.'], q: { q: 'Wer hat die Dose?', options: ['Der Hund', 'Der Hase', 'Die Pute'], a: 'Der Hund' } },
       { id: 'de4', icon: '🦓', title: 'b k g w z', graphemes: ['b', 'k', 'g', 'w', 'z'], words: ['B.u.s', 'G.a.n.s', 'W.a.l', 'Z.e.b.r.a', 'Z.u.g', 'G.a.b.e.l', 'K.a.m.e.l', 'T.i.g.e.r'], sentences: ['Das Zebra ist im Zug.', 'Der Tiger ist im Bus.'], q: { q: 'Wer ist im Zug?', options: ['Das Zebra', 'Der Tiger', 'Das Kamel'], a: 'Das Zebra' } },

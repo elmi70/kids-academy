@@ -100,12 +100,20 @@
     const others = words.filter(w => text(w).toLowerCase() !== tw).map(w => ({ w, s: (text(w)[0].toLowerCase() === tw[0] ? 2 : 0) + (text(w).length === tw.length ? 1 : 0) + Math.random() * 0.9 }));
     others.sort((a, b) => b.s - a.s); return others.slice(0, n).map(o => text(o.w));
   }
+  /* picture choices: never two pictures that a child could reasonably mix up (ship and boat, dish and fork ...) */
+  function pictureOptions(D, word) {
+    const key = text(word).toLowerCase(), em = D.emoji[key];
+    const groups = (D.confuse || []).filter(gp => gp.includes(key)), banned = new Set([key]);
+    groups.forEach(gp => gp.forEach(k => banned.add(k)));
+    const seen = new Set([em]), pool = [];
+    shuffle(Object.keys(D.emoji)).forEach(k => { const e = D.emoji[k]; if (!banned.has(k) && !seen.has(e)) { seen.add(e); pool.push(e); } });
+    return [{ t: em, v: 'ok' }].concat(pool.slice(0, 2).map((e, i) => ({ t: e, v: 'x' + i })));
+  }
   function buildQuiz(D, u) {
     const words = u.words, pics = shuffle(words.filter(w => emojiOf(D, w))), items = [];
     const picN = Math.min(3, pics.length);
     pics.slice(0, picN).forEach(w => {
-      const em = emojiOf(D, w), others = shuffle(Object.keys(D.emoji).filter(k => D.emoji[k] !== em && D.emoji[k] !== '')).slice(0, 2).map(k => D.emoji[k]);
-      items.push({ type: 'choice', q: t('rd.pic'), visual: text(w), big: true, options: [{ t: em, v: 'ok' }].concat(others.map((e, i) => ({ t: e, v: 'x' + i }))), a: 'ok', autoSay: false });
+      items.push({ type: 'choice', q: t('rd.pic'), visual: text(w), big: true, options: pictureOptions(D, w), a: 'ok', autoSay: false });
     });
     const rest = shuffle(words.filter(w => !pics.slice(0, picN).includes(w)));
     rest.slice(0, 6 - picN).concat(rest.length < 6 - picN ? shuffle(words).slice(0, 6 - picN - rest.length) : []).forEach(w => {
@@ -120,5 +128,6 @@
     KA.voiceCheck(lang, $('#vox'));
     KA.run($('#qz'), buildQuiz(D, u), { subject: 'reading', unit: u.id, lang, onBack: home, onAgain: () => quiz(D, u) });
   }
+  window.KA_READING_BUILD = buildQuiz;   // used by the automated tests
   KA.boot('reading', p => { lang = p.ui === 'de' ? 'de' : 'en'; home(); });
 })();

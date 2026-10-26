@@ -1,4 +1,4 @@
-/* Kids Academy shared engine: profiles, progress, translations, speech, exercises.
+/* Kids Academy shared engine: profiles, progress, translations, sound, exercises.
    No network calls. Everything is stored in this browser (localStorage). */
 (function (g) {
   'use strict';
@@ -13,6 +13,7 @@
     { id: 'german', icon: '🇩🇪', units: 8, path: 'subjects/german/' },
     { id: 'coding', icon: '🤖', units: 10, path: 'subjects/coding/' }
   ];
+  const root = (g.location && /\/subjects\//.test(g.location.pathname || '')) ? '../../' : '';
 
   /* ---------- helpers ---------- */
   const $ = (s, r) => (r || document).querySelector(s);
@@ -33,7 +34,9 @@
       exportB: 'Save a backup', importB: 'Load a backup', resetC: 'Reset this child', deleteC: 'Delete this child',
       confirmReset: 'Reset all progress for this child?', confirmDelete: 'Delete this child and their progress?',
       privacy: 'Everything stays on this device. Nothing is sent anywhere.',
-      noVoice: 'No {lang} voice found on this device. Words may sound wrong.', noSpeech: 'This browser cannot speak. Ask a grown-up to read aloud.',
+      noVoice: 'No {lang} voice found on this device. Words may sound wrong.', noSpeech: 'This browser cannot speak.',
+      usingClips: 'This device has no {lang} voice, so a simple recorded voice is used instead.',
+      soundIssue: 'No sound? Turn the volume up and switch off silent mode.', soundHelp: 'Sound help', switched: 'The phone voice stayed silent, so a simple recorded voice is used now.',
       listen: 'Listen', recommended: 'Recommended', needProfile: 'Please choose a child first.', goHub: 'Go to the start page',
       sound: 'Sound', original: 'Original 90-day reading plan', imported: 'Backup loaded.', badFile: 'This file is not a Kids Academy backup.',
       best: 'Best', newChild: 'New child', noChildren: 'No children yet. Add one to start.', switchChild: 'Switch child',
@@ -51,7 +54,9 @@
       exportB: 'Sicherung speichern', importB: 'Sicherung laden', resetC: 'Dieses Kind zurücksetzen', deleteC: 'Dieses Kind löschen',
       confirmReset: 'Den ganzen Fortschritt dieses Kindes zurücksetzen?', confirmDelete: 'Dieses Kind und seinen Fortschritt löschen?',
       privacy: 'Alles bleibt auf diesem Gerät. Nichts wird gesendet.',
-      noVoice: 'Keine {lang}-Stimme auf diesem Gerät gefunden. Wörter klingen vielleicht falsch.', noSpeech: 'Dieser Browser kann nicht sprechen. Bitte lass dir vorlesen.',
+      noVoice: 'Keine {lang}-Stimme auf diesem Gerät gefunden. Wörter klingen vielleicht falsch.', noSpeech: 'Dieser Browser kann nicht sprechen.',
+      usingClips: 'Dieses Gerät hat keine {lang}-Stimme. Deshalb wird eine einfache aufgenommene Stimme benutzt.',
+      soundIssue: 'Kein Ton? Mach die Lautstärke hoch und schalte den Stumm-Modus aus.', soundHelp: 'Ton-Hilfe', switched: 'Die Handy-Stimme blieb stumm. Jetzt wird eine einfache aufgenommene Stimme benutzt.',
       listen: 'Anhören', recommended: 'Empfohlen', needProfile: 'Bitte zuerst ein Kind auswählen.', goHub: 'Zur Startseite',
       sound: 'Ton', original: 'Ursprünglicher 90-Tage-Leseplan', imported: 'Sicherung geladen.', badFile: 'Diese Datei ist keine Kinder-Akademie-Sicherung.',
       best: 'Beste', newChild: 'Neues Kind', noChildren: 'Noch keine Kinder. Füge eines hinzu.', switchChild: 'Kind wechseln',
@@ -126,48 +131,145 @@
   const settings = () => store.settings;
   function setSound(on) { store.settings.sound = !!on; save(); }
 
-  /* ---------- sound effects ---------- */
-  let actx = null;
-  function beep(ok) {
-    if (!store.settings.sound) return;
-    try {
-      const AC = g.AudioContext || g.webkitAudioContext; if (!AC) return;
-      actx = actx || new AC();
-      const now = actx.currentTime;
-      (ok ? [660, 880] : [220]).forEach((f, i) => {
-        const o = actx.createOscillator(), gn = actx.createGain();
-        o.type = 'sine'; o.frequency.value = f; gn.gain.setValueAtTime(0.0001, now + i * 0.12);
-        gn.gain.exponentialRampToValueAtTime(0.15, now + i * 0.12 + 0.02); gn.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.18);
-        o.connect(gn); gn.connect(actx.destination); o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.2);
-      });
-    } catch (e) { /* audio is optional */ }
-  }
-
-  /* ---------- speech ---------- */
-  let voices = [];
+  /* ======================= SOUND =======================
+     Three layers, so a child hears something on every phone:
+       1. the phone's own voice (speechSynthesis), unlocked on the first tap, with a watchdog
+       2. recorded clips (shared/audio-en.js, shared/audio-de.js) used when the phone voice stays silent
+       3. a visible note with a link to the sound help page when neither works                      */
+  const A = { speechOk: null, lastError: '', seq: 0, pending: null, primed: false, audioPrimed: false, toastShown: false, misses: [], clipPlays: 0 };
+  const live = [];                 // keeps utterances referenced so the browser does not garbage-collect them mid-sentence
+  let actx = null, voices = [], audioEl = null;
+  const clipLoad = {};
+  const norm = s => String(s).trim().replace(/\s+/g, ' ');
   const hasSpeech = () => !!(g.speechSynthesis && g.SpeechSynthesisUtterance);
+  const voiceMode = () => store.settings.voice || 'auto';
+
+  function langOf(code) { code = String(code || '').toLowerCase().replace(/_/g, '-'); const b = code.split('-')[0]; return ({ deu: 'de', ger: 'de', eng: 'en' })[b] || b; }
   function refreshVoices() { try { voices = hasSpeech() ? (g.speechSynthesis.getVoices() || []) : []; } catch (e) { voices = []; } }
   if (hasSpeech()) { refreshVoices(); try { g.speechSynthesis.addEventListener('voiceschanged', refreshVoices); } catch (e) { /* older browsers */ } }
   function findVoice(lang) {
-    const want = (SPEECH[lang] || lang).toLowerCase(), short = want.slice(0, 2);
-    return voices.find(v => v.lang.toLowerCase().replace('_', '-') === want) || voices.find(v => v.lang.toLowerCase().replace('_', '-').startsWith(short)) || null;
+    const want = (SPEECH[lang] || lang).toLowerCase(), base = want.slice(0, 2);
+    const same = voices.filter(v => langOf(v.lang) === base);
+    return same.find(v => String(v.lang).toLowerCase().replace(/_/g, '-') === want) || same.find(v => v.localService) || same[0] || null;
+  }
+
+  const SILENT = (function () {
+    try {
+      const n = 44 + 800, b = new Uint8Array(n), dv = new DataView(b.buffer), w = (o, s) => { for (let i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i); };
+      w(0, 'RIFF'); dv.setUint32(4, n - 8, true); w(8, 'WAVE'); w(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+      dv.setUint32(24, 8000, true); dv.setUint32(28, 16000, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, 800, true);
+      let s = ''; for (let i = 0; i < n; i++) s += String.fromCharCode(b[i]); return 'data:audio/wav;base64,' + g.btoa(s);
+    } catch (e) { return ''; }
+  })();
+  function getAudio() { if (!audioEl) { try { audioEl = new g.Audio(); audioEl.preload = 'auto'; } catch (e) { audioEl = null; } } return audioEl; }
+  function ctx() { try { const AC = g.AudioContext || g.webkitAudioContext; if (!AC) return null; actx = actx || new AC(); if (actx.state === 'suspended' && actx.resume) actx.resume(); return actx; } catch (e) { return null; } }
+
+  /* Must run inside a tap. Browsers (iOS Safari above all) only allow sound after a user gesture. */
+  function unlock() {
+    try { const c = ctx(); if (c) { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } } catch (e) { /* ignore */ }
+    if (!A.audioPrimed && SILENT) { const a = getAudio(); if (a) { A.audioPrimed = true; try { a.src = SILENT; const p = a.play(); if (p && p.catch) p.catch(() => { A.audioPrimed = false; }); } catch (e) { A.audioPrimed = false; } } }
+    if (!A.primed && hasSpeech()) { A.primed = true; try { const u = new g.SpeechSynthesisUtterance(' '); u.volume = 0; live.push(u); g.speechSynthesis.speak(u); } catch (e) { /* ignore */ } }
+    if (A.pending) { const p = A.pending; A.pending = null; setTimeout(() => speak(p.text, p.lang, p.rate), 40); }
+  }
+  if (typeof document !== 'undefined') ['click', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { capture: true, passive: true }));
+
+  function toast(html) {
+    if (typeof document === 'undefined' || !document.body) return;
+    let n = document.getElementById('ka-toast');
+    if (!n) { n = document.createElement('div'); n.id = 'ka-toast'; n.className = 'ka-toast'; n.setAttribute('role', 'status'); document.body.appendChild(n); }
+    n.innerHTML = '<span>' + html + '</span><button type="button" class="ka-toast-x" aria-label="OK">✖</button>'; n.hidden = false;
+    n.querySelector('.ka-toast-x').addEventListener('click', () => { n.hidden = true; });
+    clearTimeout(A.tt); A.tt = setTimeout(() => { n.hidden = true; }, 14000);
+  }
+  function notifyIssue() { if (A.toastShown) return; A.toastShown = true; toast('🔇 ' + esc(t('soundIssue')) + ' <a href="' + root + 'sound.html">' + esc(t('soundHelp')) + '</a>'); }
+
+  function loadClips(lang) {
+    if (clipLoad[lang]) return clipLoad[lang];
+    clipLoad[lang] = new Promise(res => {
+      if (g.KA_CLIPS && g.KA_CLIPS[lang]) return res(true);
+      if (typeof document === 'undefined') return res(false);
+      const s = document.createElement('script'); s.src = root + 'shared/audio-' + lang + '.js';
+      s.onload = () => res(!!(g.KA_CLIPS && g.KA_CLIPS[lang])); s.onerror = () => res(false); document.head.appendChild(s);
+    });
+    return clipLoad[lang];
+  }
+  function playClip(text, lang) {
+    return loadClips(lang).then(ok => {
+      const uri = ok && g.KA_CLIPS[lang][norm(text)];
+      if (!uri) { A.misses.push(lang + ':' + norm(text)); return false; }
+      const a = getAudio(); if (!a) return false;
+      try { a.pause(); a.src = uri; a.currentTime = 0; const p = a.play(); A.clipPlays++; if (p && p.catch) p.catch(e => { A.lastError = 'clip: ' + (e && e.name); notifyIssue(); }); return true; } catch (e) { A.lastError = 'clip: ' + (e && e.message); return false; }
+    });
+  }
+  function failDevice(text, lang, allow) {
+    if (allow) { A.speechOk = false; store.settings.speechBad = true; save(); playClip(text, lang).then(ok => { if (!ok) notifyIssue(); else toast('ℹ️ ' + esc(t('switched')) + ' <a href="' + root + 'sound.html">' + esc(t('soundHelp')) + '</a>'); }); }
+    else notifyIssue();
+  }
+  function deviceSpeak(text, lang, rate, allow) {
+    const synth = g.speechSynthesis, my = ++A.seq;
+    try {
+      const busy = synth.speaking || synth.pending;
+      if (busy) synth.cancel();
+      if (synth.paused) synth.resume();
+      const u = new g.SpeechSynthesisUtterance(text);
+      u.lang = SPEECH[lang] || lang || 'en-GB'; u.rate = rate || 0.85; u.volume = 1; u.pitch = 1;
+      const v = findVoice(lang); if (v) { u.voice = v; u.lang = v.lang; }
+      live.push(u); if (live.length > 30) live.shift();
+      let started = false, blocked = false;
+      u.onstart = () => { started = true; A.speechOk = true; if (store.settings.speechBad) { delete store.settings.speechBad; save(); } };
+      u.onerror = e => {
+        const er = (e && e.error) || 'error';
+        if (er === 'interrupted' || er === 'canceled') return;
+        A.lastError = er;
+        if (er === 'not-allowed') { blocked = true; A.pending = { text, lang, rate }; return; }
+        if (my === A.seq) failDevice(text, lang, allow);
+      };
+      setTimeout(() => {
+        if (started || blocked || my !== A.seq) return;
+        try { if (synth.speaking) return; } catch (e) { /* ignore */ }
+        A.lastError = A.lastError || 'speech did not start'; failDevice(text, lang, allow);
+      }, (A.speechOk ? 1800 : 3000) + (busy ? 60 : 0));
+      setTimeout(() => { try { synth.speak(u); } catch (e) { A.lastError = String(e && e.message || e); failDevice(text, lang, allow); } }, busy ? 60 : 0);
+      return true;
+    } catch (e) { A.lastError = String(e && e.message || e); failDevice(text, lang, allow); return false; }
   }
   function speak(text, lang, rate) {
-    if (!hasSpeech() || !text) return false;
+    text = norm(text || ''); if (!text) return false; lang = lang || 'en';
+    const mode = voiceMode();
+    const clipsOnly = mode === 'clips' || (mode === 'auto' && (!hasSpeech() || store.settings.speechBad === true));
+    if (clipsOnly) { if (hasSpeech()) { try { g.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } playClip(text, lang).then(ok => { if (!ok) notifyIssue(); }); return true; }
+    if (!hasSpeech()) { notifyIssue(); return false; }
+    return deviceSpeak(text, lang, rate, mode === 'auto');
+  }
+  function beep(ok) {
+    if (!store.settings.sound) return;
     try {
-      g.speechSynthesis.cancel();
-      const u = new g.SpeechSynthesisUtterance(String(text));
-      u.lang = SPEECH[lang] || lang || 'en-GB'; u.rate = rate || 0.85;
-      const v = findVoice(lang); if (v) u.voice = v;
-      g.speechSynthesis.speak(u); return true;
-    } catch (e) { return false; }
+      const c = ctx(); if (!c) return;
+      const now = c.currentTime;
+      (ok ? [660, 880] : [220]).forEach((f, i) => {
+        const o = c.createOscillator(), gn = c.createGain();
+        o.type = 'sine'; o.frequency.value = f; gn.gain.setValueAtTime(0.0001, now + i * 0.12);
+        gn.gain.exponentialRampToValueAtTime(0.15, now + i * 0.12 + 0.02); gn.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.18);
+        o.connect(gn); gn.connect(c.destination); o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.2);
+      });
+    } catch (e) { /* audio is optional */ }
+  }
+  function setVoiceMode(m) { store.settings.voice = (m === 'device' || m === 'clips') ? m : 'auto'; if (store.settings.voice !== 'auto') delete store.settings.speechBad; save(); }
+  function resetSpeech() { delete store.settings.speechBad; A.speechOk = null; A.lastError = ''; A.toastShown = false; save(); }
+  function audioInfo() {
+    const e = findVoice('en'), d = findVoice('de');
+    return { speech: hasSpeech(), voices: voices.length, en: e ? e.name + ' (' + e.lang + ')' : '', de: d ? d.name + ' (' + d.lang + ')' : '', ctx: actx ? actx.state : 'not started',
+      mode: voiceMode(), speechBad: !!store.settings.speechBad, speechOk: A.speechOk, lastError: A.lastError, clips: { en: !!(g.KA_CLIPS && g.KA_CLIPS.en), de: !!(g.KA_CLIPS && g.KA_CLIPS.de) },
+      clipPlays: A.clipPlays, misses: A.misses.slice(), secure: !!g.isSecureContext, ua: (g.navigator && g.navigator.userAgent) || '' };
   }
   function voiceCheck(lang, host) {
     if (!host) return;
     const show = () => {
       host.innerHTML = '';
-      if (!hasSpeech()) host.appendChild(el('div', 'ka-note', '🔇 ' + esc(t('noSpeech'))));
-      else if (!findVoice(lang)) host.appendChild(el('div', 'ka-note', '⚠️ ' + esc(t('noVoice', { lang: lang === 'de' ? 'German' : 'English' }))));
+      const link = ' <a href="' + root + 'sound.html">' + esc(t('soundHelp')) + '</a>', name = lang === 'de' ? 'German' : 'English';
+      const device = hasSpeech() && findVoice(lang) && store.settings.speechBad !== true;
+      if (voiceMode() === 'device') { if (!hasSpeech()) host.appendChild(el('div', 'ka-note', '🔇 ' + esc(t('noSpeech')) + link)); else if (!findVoice(lang)) host.appendChild(el('div', 'ka-note', '⚠️ ' + esc(t('noVoice', { lang: name })) + link)); return; }
+      if (voiceMode() === 'clips' || !device) host.appendChild(el('div', 'ka-note', 'ℹ️ ' + esc(t('usingClips', { lang: name })) + link));
     };
     show();
     if (hasSpeech()) { setTimeout(() => { refreshVoices(); show(); }, 800); try { g.speechSynthesis.addEventListener('voiceschanged', () => { refreshVoices(); show(); }); } catch (e) { /* ignore */ } }
@@ -215,7 +317,7 @@
   }
 
   /* ---------- exercise engine ---------- */
-  /* items: {type:'choice'|'number'|'reorder', q, say, sayLang, visual, options:[{t,v}|string], a, keepOrder, words, join, end, explain} */
+  /* items: {type:'choice'|'number'|'reorder', q, say, sayLang, visual, options:[{t,v}|string], a, keepOrder, words, join, end, explain, sayCorrect} */
   function run(host, items, opts) {
     opts = opts || {};
     const lang = opts.lang || 'en';
@@ -234,7 +336,7 @@
     function correct(it, fb) {
       locked = true; if (!wrong) firstTry++;
       beep(true); fb.textContent = '✅ ' + t('great') + (it.explain ? ' ' + it.explain : '');
-      if (it.sayCorrect) setTimeout(() => speak(it.sayCorrect, it.sayLang || lang, it.rate), 250);
+      if (it.sayCorrect && store.settings.sound) setTimeout(() => speak(it.sayCorrect, it.sayLang || lang, it.rate), 250);
       const nav = $('.ka-nav', host); nav.innerHTML = '';
       const b = el('button', 'ka-btn primary', esc(i + 1 >= total ? t('done') : t('next')) + ' →'); b.type = 'button'; nav.appendChild(b);
       b.addEventListener('click', () => { i++; show(); }); b.focus();
@@ -280,7 +382,7 @@
         inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 4); });
         if (!(g.matchMedia && g.matchMedia('(pointer:coarse)').matches)) inp.focus(); else inp.readOnly = true;
       } else if (type === 'reorder') {
-        const words = it.words, n = words.length, join = it.join === undefined ? ' ' : it.join;
+        const words = it.words, n = words.length;
         let order = shuffle(words.map((w, k) => k));
         for (let tries = 0; n > 1 && tries < 8 && order.every((o, k) => words[o] === words[k]); tries++) order = shuffle(order);
         body.innerHTML = '<div class="ka-slots" aria-label="answer"></div><div class="ka-bank"></div>';
@@ -303,7 +405,7 @@
         };
         draw();
       }
-      if (it.autoSay !== false && it.say) setTimeout(() => sayIt(it), 150);
+      if (it.autoSay !== false && it.say && store.settings.sound) setTimeout(() => sayIt(it), 150);
     }
 
     function result() {
@@ -337,6 +439,7 @@
 
   g.KA = { $, $$, el, esc, shuffle, rng, pick, t, addStrings, AVATARS, SPEECH, SUBJECTS, profile, profiles, addProfile, selectProfile, setUi, removeProfile, resetProfile, reload,
     unitRec, award, awardStars, subjectStars, subjectDone, totalStars, exportJSON, importJSON, settings, setSound, beep, speak, voiceCheck, hasSpeech, boot, gate, run, unitGrid, firstUnfinished, refreshStars,
+    unlock, audioInfo, setVoiceMode, resetSpeech, loadClips, playClip, norm, langOf, root,
     setUiLang: l => { UI = l === 'de' ? 'de' : 'en'; document.documentElement.lang = UI; }, getUi: () => UI };
   if (typeof module !== 'undefined') module.exports = g.KA;
 })(typeof window !== 'undefined' ? window : globalThis);
