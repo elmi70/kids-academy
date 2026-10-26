@@ -36,7 +36,7 @@
       [t('sh.curMode'), modeName], [t('sh.bad'), yn(i.speechBad)], [t('sh.clipsOk'), 'EN: ' + (i.clips.en ? t('sh.ready') : t('sh.onDemand')) + '   DE: ' + (i.clips.de ? t('sh.ready') : t('sh.onDemand'))], [t('sh.err'), i.lastError || t('sh.none')]
     ];
   }
-  function details() { const i = KA.audioInfo(); return JSON.stringify({ speech: i.speech, voices: i.voices, enVoice: i.en, deVoice: i.de, audioEngine: i.ctx, mode: i.mode, phoneVoiceMarkedBad: i.speechBad, clipsLoaded: i.clips, clipPlays: i.clipPlays, lastError: i.lastError, secureContext: i.secure, userAgent: i.ua, recentEvents: i.log }, null, 1); }
+  function details() { const i = KA.audioInfo(); return JSON.stringify({ speech: i.speech, voices: i.voices, enVoice: i.en, deVoice: i.de, audioEngine: i.ctx, mode: i.mode, phoneVoiceMarkedBad: i.speechBad, clipsLoaded: i.clips, clipPlays: i.clipPlays, lastError: i.lastError, secureContext: i.secure, userAgent: i.ua }, null, 1); }
 
   function draw() {
     const i = KA.audioInfo(), st = KA.settings();

@@ -143,11 +143,6 @@
   const norm = s => String(s).trim().replace(/\s+/g, ' ');
   const hasSpeech = () => !!(g.speechSynthesis && g.SpeechSynthesisUtterance);
   const voiceMode = () => store.settings.voice || 'auto';
-  const T0 = Date.now();
-  function dbg(msg) {   // keeps the last events across pages so Sound help can show what a lesson did
-    try { const k = 'ka.dbg', a = JSON.parse(g.localStorage.getItem(k) || '[]'); a.push(((Date.now() - T0) / 1000).toFixed(1) + 's ' + (g.location ? g.location.pathname.split('/').slice(-2).join('/') : '') + ' ' + msg); while (a.length > 40) a.shift(); g.localStorage.setItem(k, JSON.stringify(a)); } catch (e) { /* ignore */ }
-  }
-  function readLog() { try { return JSON.parse(g.localStorage.getItem('ka.dbg') || '[]'); } catch (e) { return []; } }
 
   function langOf(code) { code = String(code || '').toLowerCase().replace(/_/g, '-'); const b = code.split('-')[0]; return ({ deu: 'de', ger: 'de', eng: 'en' })[b] || b; }
   function refreshVoices() { try { voices = hasSpeech() ? (g.speechSynthesis.getVoices() || []) : []; } catch (e) { voices = []; } }
@@ -171,9 +166,10 @@
 
   /* Must run inside a tap. Browsers (iOS Safari above all) only allow sound after a user gesture. */
   function unlock() {
+    try { const as = g.navigator && g.navigator.audioSession; if (as && as.type !== 'playback') as.type = 'playback'; } catch (e) { /* Safari 16.4+ only */ }
     try { const c = ctx(); if (c) { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } } catch (e) { /* ignore */ }
-    if (!A.audioPrimed && SILENT) { const a = getAudio(); if (a) { A.audioPrimed = true; try { a.src = SILENT; const p = a.play(); if (p && p.catch) p.catch(() => { A.audioPrimed = false; }); } catch (e) { A.audioPrimed = false; } } }
-    if (!A.primed && hasSpeech()) { A.primed = true; dbg('unlock: prime speech'); try { const u = new g.SpeechSynthesisUtterance(' '); u.volume = 0; live.push(u); g.speechSynthesis.speak(u); } catch (e) { /* ignore */ } }
+    if (!A.audioPrimed && SILENT) { const a = getAudio(); if (a && (a.paused || a.ended)) { A.audioPrimed = true; try { a.src = SILENT; const p = a.play(); if (p && p.catch) p.catch(e => { if (!e || e.name !== 'AbortError') A.audioPrimed = false; }); } catch (e) { A.audioPrimed = false; } } }
+    if (!A.primed && hasSpeech()) { A.primed = true; try { const u = new g.SpeechSynthesisUtterance(' '); u.volume = 0; live.push(u); g.speechSynthesis.speak(u); } catch (e) { /* ignore */ } }
     if (A.pending) { const p = A.pending; A.pending = null; setTimeout(() => speak(p.text, p.lang, p.rate), 40); }
   }
   if (typeof document !== 'undefined') ['click', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { capture: true, passive: true }));
@@ -203,7 +199,7 @@
       const uri = ok && g.KA_CLIPS[lang][norm(text)];
       if (!uri) { A.misses.push(lang + ':' + norm(text)); return false; }
       const a = getAudio(); if (!a) return false;
-      try { a.pause(); a.src = uri; a.currentTime = 0; const p = a.play(); A.clipPlays++; dbg('clip play "' + norm(text) + '"'); if (p && p.then) p.then(() => dbg('clip playing'), e => { dbg('clip rejected ' + (e && e.name)); A.lastError = 'clip: ' + (e && e.name); notifyIssue(); }); return true; } catch (e) { A.lastError = 'clip: ' + (e && e.message); return false; }
+      try { a.pause(); a.src = uri; a.currentTime = 0; const p = a.play(); A.clipPlays++; if (p && p.catch) p.catch(e => { A.lastError = 'clip: ' + (e && e.name); notifyIssue(); }); return true; } catch (e) { A.lastError = 'clip: ' + (e && e.message); return false; }
     });
   }
   function failDevice(text, lang, allow) {
@@ -214,7 +210,6 @@
     const synth = g.speechSynthesis, my = ++A.seq;
     try {
       const busy = synth.speaking || synth.pending;
-      dbg('device speak "' + text + '" busy=' + !!busy + ' voice=' + (findVoice(lang) ? findVoice(lang).name : 'none') + ' ok=' + A.speechOk);
       if (busy) synth.cancel();
       if (synth.paused) synth.resume();
       const u = new g.SpeechSynthesisUtterance(text);
@@ -222,11 +217,9 @@
       const v = findVoice(lang); if (v) { u.voice = v; u.lang = v.lang; }
       live.push(u); if (live.length > 30) live.shift();
       let started = false, blocked = false;
-      u.onstart = () => { dbg('onstart "' + text + '"'); started = true; A.speechOk = true; if (store.settings.speechBad) { delete store.settings.speechBad; save(); } };
-      u.onend = () => dbg('onend "' + text + '"');
+      u.onstart = () => { started = true; A.speechOk = true; if (store.settings.speechBad) { delete store.settings.speechBad; save(); } };
       u.onerror = e => {
         const er = (e && e.error) || 'error';
-        dbg('onerror ' + er + ' "' + text + '"');
         if (er === 'interrupted' || er === 'canceled') return;
         A.lastError = er;
         if (er === 'not-allowed') { blocked = true; A.pending = { text, lang, rate }; return; }
@@ -234,8 +227,7 @@
       };
       setTimeout(() => {
         if (started || blocked || my !== A.seq) return;
-        try { if (synth.speaking && A.speechOk) return; } catch (e) { /* ignore */ }   // Android can report speaking=true while silent, so only trust it once speech has worked
-        dbg('watchdog: never started, speaking=' + synth.speaking + ' pending=' + synth.pending);
+        try { if (synth.speaking) return; } catch (e) { /* ignore */ }
         A.lastError = A.lastError || 'speech did not start'; failDevice(text, lang, allow);
       }, (A.speechOk ? 1800 : 3000) + (busy ? 60 : 0));
       setTimeout(() => { try { synth.speak(u); } catch (e) { A.lastError = String(e && e.message || e); failDevice(text, lang, allow); } }, busy ? 60 : 0);
@@ -245,7 +237,6 @@
   function speak(text, lang, rate) {
     text = norm(text || ''); if (!text) return false; lang = lang || 'en';
     const mode = voiceMode();
-    dbg('speak "' + text + '" ' + lang + ' mode=' + mode + ' bad=' + !!store.settings.speechBad);
     const clipsOnly = mode === 'clips' || (mode === 'auto' && (!hasSpeech() || store.settings.speechBad === true));
     if (clipsOnly) { if (hasSpeech()) { try { g.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } playClip(text, lang).then(ok => { if (!ok) notifyIssue(); }); return true; }
     if (!hasSpeech()) { notifyIssue(); return false; }
@@ -270,7 +261,7 @@
     const e = findVoice('en'), d = findVoice('de');
     return { speech: hasSpeech(), voices: voices.length, en: e ? e.name + ' (' + e.lang + ')' : '', de: d ? d.name + ' (' + d.lang + ')' : '', ctx: actx ? actx.state : 'not started',
       mode: voiceMode(), speechBad: !!store.settings.speechBad, speechOk: A.speechOk, lastError: A.lastError, clips: { en: !!(g.KA_CLIPS && g.KA_CLIPS.en), de: !!(g.KA_CLIPS && g.KA_CLIPS.de) },
-      clipPlays: A.clipPlays, misses: A.misses.slice(), secure: !!g.isSecureContext, ua: (g.navigator && g.navigator.userAgent) || '', log: readLog() };
+      clipPlays: A.clipPlays, misses: A.misses.slice(), secure: !!g.isSecureContext, ua: (g.navigator && g.navigator.userAgent) || '' };
   }
   function voiceCheck(lang, host) {
     if (!host) return;
