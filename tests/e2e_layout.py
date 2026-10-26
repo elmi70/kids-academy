@@ -10,7 +10,7 @@ with sync_playwright() as p:
     try:
         pg.goto(BASE + 'index.html'); pg.wait_for_function("navigator.serviceWorker.getRegistrations().then(r => r.length > 0)", timeout=8000)
         pg.wait_for_function("caches.keys().then(k => k.length > 0)", timeout=8000); pg.wait_for_timeout(1500)
-        check(pg.evaluate("caches.keys().then(k => k.join(','))") == 'kids-academy-v3', 'offline: cache is named kids-academy-v3 (old v1 caches are removed)')
+        check(pg.evaluate("caches.keys().then(k => k.join(','))") == 'kids-academy-v4', 'offline: cache is named kids-academy-v4 (old v1 caches are removed)')
         check(pg.evaluate("fetch('marker_test.txt').then(r => r.text())") == 'old', 'update: file is fetched through the service worker')
         open(mk, 'w').write('new'); pg.reload(); pg.wait_for_timeout(500)
         check(pg.evaluate("fetch('marker_test.txt').then(r => r.text())") == 'new', 'update: a fixed file reaches the phone straight away (network first, not a stale copy)')
